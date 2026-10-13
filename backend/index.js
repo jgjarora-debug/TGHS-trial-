@@ -10,6 +10,12 @@ const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
+const dbStatus = {
+  state: 'disconnected',
+  lastError: null,
+  connectedAt: null,
+};
+
 // CORS Configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
@@ -38,9 +44,57 @@ app.use(express.urlencoded({ extended: true }));
 // Database connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tghs_ats';
 mongoose.connect(MONGODB_URI).then(() => {
+  dbStatus.state = 'connected';
+  dbStatus.lastError = null;
+  dbStatus.connectedAt = new Date().toISOString();
   console.log('Connected to MongoDB');
 }).catch((err) => {
+  dbStatus.state = 'error';
+  dbStatus.lastError = err.message;
   console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('connecting', () => {
+  dbStatus.state = 'connecting';
+});
+
+mongoose.connection.on('connected', () => {
+  dbStatus.state = 'connected';
+  dbStatus.lastError = null;
+  dbStatus.connectedAt = new Date().toISOString();
+});
+
+mongoose.connection.on('disconnected', () => {
+  dbStatus.state = 'disconnected';
+});
+
+mongoose.connection.on('error', (err) => {
+  dbStatus.state = 'error';
+  dbStatus.lastError = err.message;
+});
+
+// Health check distinguishes server availability from database readiness.
+app.get('/api/health', (req, res) => {
+  const readyState = mongoose.connection.readyState;
+  const databaseReady = readyState === 1;
+
+  res.status(databaseReady ? 200 : 503).json({
+    success: databaseReady,
+    backend: {
+      status: 'ok',
+      uptimeSeconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+    },
+    database: {
+      ready: databaseReady,
+      state: dbStatus.state,
+      mongooseReadyState: readyState,
+      host: mongoose.connection.host || null,
+      name: mongoose.connection.name || null,
+      connectedAt: dbStatus.connectedAt,
+      lastError: dbStatus.lastError,
+    },
+  });
 });
 
 // Routes
