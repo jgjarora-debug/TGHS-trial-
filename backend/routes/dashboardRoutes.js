@@ -7,13 +7,16 @@ const router = express.Router();
 
 router.get('/summary', async (req, res, next) => {
   try {
-    const [candidateCount, openJobCount, applicationCount, activeApplicationCount, hiredCount, stageGroups] = await Promise.all([
+    const [candidateCount, openJobCount, applicationCount, activeApplicationCount, hiredCount, rejectedCount, withdrawnCount, stageGroups] = await Promise.all([
       Candidate.countDocuments(),
       Job.countDocuments({ status: 'OPEN' }),
       Application.countDocuments(),
       Application.countDocuments({ outcome: 'ACTIVE' }),
       Application.countDocuments({ outcome: 'HIRED' }),
+      Application.countDocuments({ outcome: 'REJECTED' }),
+      Application.countDocuments({ outcome: 'WITHDRAWN' }),
       Application.aggregate([
+        { $match: { outcome: 'ACTIVE' } },
         { $group: { _id: '$stage', count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
@@ -31,6 +34,8 @@ router.get('/summary', async (req, res, next) => {
         applicationCount,
         activeApplicationCount,
         hiredCount,
+        rejectedCount,
+        withdrawnCount,
         stageCounts,
       },
     });

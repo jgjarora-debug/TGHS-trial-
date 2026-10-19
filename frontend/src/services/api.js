@@ -8,4 +8,17 @@ const api = axios.create({
   withCredentials: true,
 });
 
+api.interceptors.response.use((response) => {
+  const method = response.config.method?.toLowerCase();
+  if (['post', 'put', 'patch', 'delete'].includes(method) && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('ats:data-changed'));
+    try {
+      window.localStorage.setItem('ats:data-changed', String(Date.now()));
+    } catch {
+      // Same-tab updates still work if browser storage is unavailable.
+    }
+  }
+  return response;
+});
+
 export default api;
