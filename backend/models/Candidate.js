@@ -35,7 +35,9 @@ const candidateSchema = new mongoose.Schema({
     default: 'NEW'
   },
   aiScreening: aiScreeningSchema,
-  duplicateFlag: duplicateFlagSchema
+  duplicateFlag: duplicateFlagSchema,
+  isDemo: { type: Boolean, default: false, index: true },
+  demoKey: { type: String, unique: true, sparse: true, select: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Candidate', candidateSchema);

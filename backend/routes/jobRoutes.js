@@ -1,11 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const Job = require('../models/Job');
+const Application = require('../models/Application');
+const jobFields = ['title', 'department', 'requirements', 'status'];
+const pickJobFields = (body) => Object.fromEntries(
+  jobFields.filter((field) => body[field] !== undefined).map((field) => [field, body[field]])
+);
 
 // Create a job
 router.post('/', async (req, res, next) => {
   try {
-    const job = await Job.create(req.body);
+    const { isDemo = false } = req.body;
+    if (typeof isDemo !== 'boolean' || (isDemo && process.env.NODE_ENV !== 'development')) {
+      return res.status(400).json({ success: false, message: 'Demo jobs can only be created in development' });
+    }
+    const job = await Job.create({ ...pickJobFields(req.body), isDemo });
     res.status(201).json({ success: true, data: job });
   } catch (error) {
     next(error);
@@ -38,8 +47,8 @@ router.get('/:id', async (req, res, next) => {
 // Update a job
 router.put('/:id', async (req, res, next) => {
   try {
-    const job = await Job.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    const job = await Job.findByIdAndUpdate(req.params.id, pickJobFields(req.body), {
+      returnDocument: 'after',
       runValidators: true
     });
     if (!job) {
@@ -54,6 +63,10 @@ router.put('/:id', async (req, res, next) => {
 // Delete a job
 router.delete('/:id', async (req, res, next) => {
   try {
+    const applicationCount = await Application.countDocuments({ jobId: req.params.id });
+    if (applicationCount > 0) {
+      return res.status(409).json({ success: false, message: 'Job has applications and cannot be deleted' });
+    }
     const job = await Job.findByIdAndDelete(req.params.id);
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });

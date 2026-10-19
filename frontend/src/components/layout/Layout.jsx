@@ -6,9 +6,9 @@ const Layout = ({ children }) => {
   return (
     <div className="bg-background font-body-md text-body-md text-on-surface antialiased">
       <Sidebar />
-      <div className="pl-[280px]">
+      <div className="pl-64 max-md:pl-0">
         <Header />
-        <main className="w-full pt-16 min-h-screen">
+        <main className="w-full pt-16 max-md:pt-24 min-h-screen">
           <div className="flex flex-col w-full">
             {children}
           </div>

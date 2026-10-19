@@ -1,15 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const Candidate = require('../models/Candidate');
+const Application = require('../models/Application');
 const levenshtein = require('fast-levenshtein');
+const candidateFields = ['fullName', 'position', 'email', 'phone', 'resumeText', 'status'];
+const pickCandidateFields = (body) => Object.fromEntries(
+  candidateFields.filter((field) => body[field] !== undefined).map((field) => [field, body[field]])
+);
 
 // Create a new candidate
 router.post('/', async (req, res, next) => {
   try {
-    const { fullName, position, email, phone, resumeText } = req.body;
+    const { fullName, position, email, phone, resumeText, isDemo = false } = req.body;
+    if (![fullName, position, email, phone].every((value) => typeof value === 'string' && value.trim())) {
+      return res.status(400).json({ success: false, message: 'Full name, position, email, and phone are required' });
+    }
+    if (typeof isDemo !== 'boolean' || (isDemo && process.env.NODE_ENV !== 'development')) {
+      return res.status(400).json({ success: false, message: 'Demo candidates can only be created in development' });
+    }
     
     // Check for exact email match duplicate
-    const existingCandidate = await Candidate.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: 'A valid email address is required' });
+    }
+    if (resumeText !== undefined && (typeof resumeText !== 'string' || resumeText.length > 10000)) {
+      return res.status(400).json({ success: false, message: 'Resume text must be a string up to 10000 characters' });
+    }
+    const existingCandidate = await Candidate.findOne({ email: normalizedEmail });
     
     let isDuplicate = false;
     let matchScore = 0;
@@ -21,8 +39,8 @@ router.post('/', async (req, res, next) => {
       // Check for fuzzy name match using Levenshtein distance
       const allCandidates = await Candidate.find({}, 'fullName');
       for (const candidate of allCandidates) {
-        const distance = levenshtein.get(fullName.toLowerCase(), candidate.fullName.toLowerCase());
-        const maxLength = Math.max(fullName.length, candidate.fullName.length);
+        const distance = levenshtein.get(fullName.trim().toLowerCase(), candidate.fullName.toLowerCase());
+        const maxLength = Math.max(fullName.trim().length, candidate.fullName.length);
         const similarity = ((maxLength - distance) / maxLength) * 100;
         
         if (similarity > 85) { // Threshold for fuzzy match
@@ -35,9 +53,10 @@ router.post('/', async (req, res, next) => {
     const candidateData = {
       fullName,
       position,
-      email,
+      email: normalizedEmail,
       phone,
       resumeText,
+      isDemo,
       duplicateFlag: {
         isDuplicate,
         matchScore
@@ -79,8 +98,18 @@ router.get('/:id', async (req, res, next) => {
 // Update candidate
 router.put('/:id', async (req, res, next) => {
   try {
-    const candidate = await Candidate.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    const updates = pickCandidateFields(req.body);
+    if (updates.email) {
+      updates.email = updates.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updates.email)) {
+        return res.status(400).json({ success: false, message: 'A valid email address is required' });
+      }
+    }
+    if (updates.resumeText !== undefined && (typeof updates.resumeText !== 'string' || updates.resumeText.length > 10000)) {
+      return res.status(400).json({ success: false, message: 'Resume text must be a string up to 10000 characters' });
+    }
+    const candidate = await Candidate.findByIdAndUpdate(req.params.id, updates, {
+      returnDocument: 'after',
       runValidators: true
     });
     if (!candidate) {
@@ -95,6 +124,10 @@ router.put('/:id', async (req, res, next) => {
 // Delete candidate
 router.delete('/:id', async (req, res, next) => {
   try {
+    const applicationCount = await Application.countDocuments({ candidateId: req.params.id });
+    if (applicationCount > 0) {
+      return res.status(409).json({ success: false, message: 'Candidate has applications and cannot be deleted' });
+    }
     const candidate = await Candidate.findByIdAndDelete(req.params.id);
     if (!candidate) {
       return res.status(404).json({ success: false, message: 'Candidate not found' });

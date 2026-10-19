@@ -7,6 +7,8 @@ const helmet = require('helmet');
 const candidateRoutes = require('./routes/candidateRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const userRoutes = require('./routes/userRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
@@ -101,9 +103,20 @@ app.get('/api/health', (req, res) => {
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+  if (err.name === 'CastError') {
+    return res.status(400).json({ success: false, message: 'Invalid identifier or value' });
+  }
+  if (err.code === 11000) {
+    return res.status(409).json({ success: false, message: 'A matching record already exists' });
+  }
   console.error(err.stack);
   res.status(err.status || 500).json({
     success: false,
