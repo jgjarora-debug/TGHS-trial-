@@ -76,6 +76,9 @@ router.post('/', async (req, res, next) => {
     if (!candidate) {
       return res.status(404).json({ success: false, message: 'Candidate not found' });
     }
+    if (candidate.archivedAt) {
+      return res.status(409).json({ success: false, message: 'Cannot create an application for an archived candidate' });
+    }
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }

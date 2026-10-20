@@ -36,6 +36,7 @@ const candidateSchema = new mongoose.Schema({
   },
   aiScreening: aiScreeningSchema,
   duplicateFlag: duplicateFlagSchema,
+  archivedAt: { type: Date, default: null, index: true },
   isDemo: { type: Boolean, default: false, index: true },
   demoKey: { type: String, unique: true, sparse: true, select: false }
 }, { timestamps: true });

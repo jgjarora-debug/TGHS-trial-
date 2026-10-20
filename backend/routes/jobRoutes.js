@@ -65,7 +65,11 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const applicationCount = await Application.countDocuments({ jobId: req.params.id });
     if (applicationCount > 0) {
-      return res.status(409).json({ success: false, message: 'Job has applications and cannot be deleted' });
+      return res.status(409).json({
+        success: false,
+        message: `Job has ${applicationCount} application record${applicationCount === 1 ? '' : 's'}; close the job to preserve its history`,
+        applicationCount,
+      });
     }
     const job = await Job.findByIdAndDelete(req.params.id);
     if (!job) {

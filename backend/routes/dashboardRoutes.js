@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/summary', async (req, res, next) => {
   try {
     const [candidateCount, openJobCount, applicationCount, activeApplicationCount, hiredCount, rejectedCount, withdrawnCount, stageGroups] = await Promise.all([
-      Candidate.countDocuments(),
+      Candidate.countDocuments({ archivedAt: null }),
       Job.countDocuments({ status: 'OPEN' }),
       Application.countDocuments(),
       Application.countDocuments({ outcome: 'ACTIVE' }),

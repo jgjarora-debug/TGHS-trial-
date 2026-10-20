@@ -75,8 +75,41 @@ router.post('/', async (req, res, next) => {
 // Get all candidates
 router.get('/', async (req, res, next) => {
   try {
-    const candidates = await Candidate.find();
+    const filter = req.query.includeArchived === 'true' ? {} : { archivedAt: null };
+    const candidates = await Candidate.find(filter).sort({ createdAt: -1 });
     res.status(200).json({ success: true, count: candidates.length, data: candidates });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/archive', async (req, res, next) => {
+  try {
+    const candidate = await Candidate.findByIdAndUpdate(
+      req.params.id,
+      { $set: { archivedAt: new Date() } },
+      { returnDocument: 'after', runValidators: true }
+    );
+    if (!candidate) {
+      return res.status(404).json({ success: false, message: 'Candidate not found' });
+    }
+    res.status(200).json({ success: true, data: candidate });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/restore', async (req, res, next) => {
+  try {
+    const candidate = await Candidate.findByIdAndUpdate(
+      req.params.id,
+      { $set: { archivedAt: null } },
+      { returnDocument: 'after', runValidators: true }
+    );
+    if (!candidate) {
+      return res.status(404).json({ success: false, message: 'Candidate not found' });
+    }
+    res.status(200).json({ success: true, data: candidate });
   } catch (error) {
     next(error);
   }
@@ -126,7 +159,11 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const applicationCount = await Application.countDocuments({ candidateId: req.params.id });
     if (applicationCount > 0) {
-      return res.status(409).json({ success: false, message: 'Candidate has applications and cannot be deleted' });
+      return res.status(409).json({
+        success: false,
+        message: `Candidate has ${applicationCount} application record${applicationCount === 1 ? '' : 's'}; archive the candidate to preserve its history`,
+        applicationCount,
+      });
     }
     const candidate = await Candidate.findByIdAndDelete(req.params.id);
     if (!candidate) {

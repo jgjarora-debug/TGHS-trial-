@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { applicationService } from '../../services/applicationService';
 import { candidateService } from '../../services/candidateService';
 import { jobService } from '../../services/jobService';
+import { useDataRefresh } from '../../hooks/useDataRefresh';
 
 const stages = ['NEW', 'SCREENED', 'INTERVIEW', 'FEEDBACK', 'OFFER', 'JOINED'];
 const candidateBlank = { fullName: '', position: '', email: '', phone: '', resumeText: '', status: 'NEW', isDemo: true };
@@ -43,6 +44,7 @@ export default function Pipeline() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useDataRefresh(load);
 
   const candidateMatches = useMemo(() => {
     const query = candidateSearch.trim().toLowerCase();

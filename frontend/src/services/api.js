@@ -11,11 +11,11 @@ const api = axios.create({
 api.interceptors.response.use((response) => {
   const method = response.config.method?.toLowerCase();
   if (['post', 'put', 'patch', 'delete'].includes(method) && typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('ats:data-changed'));
     try {
-      window.localStorage.setItem('ats:data-changed', String(Date.now()));
+      const revision = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      window.localStorage.setItem('ats:data-changed', revision);
     } catch {
-      // Same-tab updates still work if browser storage is unavailable.
+      // The active page still refreshes after its own successful mutation.
     }
   }
   return response;
